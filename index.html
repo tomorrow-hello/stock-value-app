@@ -27,6 +27,12 @@
        background:var(--card2);color:var(--txt);padding:10px 12px;outline:none}
   input:focus{border-color:var(--acc)}
   input.code{flex:1;letter-spacing:1px}
+  .sugg{background:var(--card2);border:1px solid var(--line);border-radius:10px;margin-top:8px;overflow:hidden}
+  .sugg .it{padding:9px 12px;border-bottom:1px solid var(--line);cursor:pointer;display:flex;justify-content:space-between;gap:8px}
+  .sugg .it:last-child{border-bottom:none}
+  .sugg .it:active{background:var(--line)}
+  .sugg .it .nm{font-weight:600}
+  .sugg .it .cd{color:var(--sub);font-size:12px;flex-shrink:0}
   input.mini{width:100%;padding:8px 10px;font-size:14px}
   button.primary{background:var(--acc);color:#06263b;font-weight:700;border:none;flex-shrink:0}
   button.ghost{background:transparent;border:1px solid var(--line);color:var(--sub);font-size:13px;padding:7px 12px}
@@ -83,11 +89,12 @@
   <div id="page-score">
     <div class="card">
       <div class="row">
-        <input class="code" id="codeInput" placeholder="代码/名称：600519 · 00700 · AAPL" maxlength="12">
+        <input class="code" id="codeInput" placeholder="代码或名称：600519 / 茅台 / AAPL / 苹果" maxlength="14">
         <button class="primary" id="btnGo">分析</button>
       </div>
+      <div id="suggest" class="sugg hidden"></div>
       <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap" id="hotChips"></div>
-      <div class="note">支持：A股(6位数字) · 港股(5位数字，如 00700) · 美股(字母，如 AAPL)。数据源：腾讯财经公开行情，免费无 Key。港股/美股为延迟约15分钟行情。</div>
+      <div class="note">支持直接输<b>名称</b>（如「茅台」「腾讯」「苹果」）或代码：A股(6位数字) · 港股(5位数字，如 00700) · 美股(字母，如 AAPL)。数据源：腾讯财经公开行情，免费无 Key。港股/美股为延迟约15分钟行情。</div>
     </div>
 
     <details class="card" id="fundCard">
@@ -132,7 +139,9 @@
         · <b>趋势动量</b>：现价 vs MA20/MA60 + 近 20 日涨跌幅（自动拉 K 线）。<br>
         · <b>风险</b>：年化波动率 + 当日振幅，越低越高分。<br>
         · <b>流动性</b>：成交额 + 换手率 + 量比（港股缺换手率/量比时自动降权）。<br><br>
-        评级：≥80 优秀 A｜65–79 良好 B｜50–64 一般 C｜&lt;50 谨慎 D
+        评级：≥80 优秀 A｜65–79 良好 B｜50–64 一般 C｜&lt;50 谨慎 D<br>
+        · <b>估值结论</b>（只看 PE/PB）：≥85 明显低估｜70–84 相对低估｜55–69 合理｜40–54 偏高｜&lt;40 很贵。<br>
+        · <b>评级原因</b>：自动列出得分最高的<b>支撑项</b>与得分最低的<b>拖累项</b>（取各维度中 ≥65 分与 &lt;50 分的前两项）。
       </div>
     </div>
     <div class="card">
@@ -189,7 +198,7 @@ function buildSym(code, market){
     throw new Error('A股代码格式有误');
   }
   if(market==='hk') return 'hk'+code.padStart(5,'0');
-  return 'us'+code.toUpperCase();   // 美股
+  return 'us'+code.split('.')[0].toUpperCase();   // 美股：行情接口不接受 .OQ/.N 等后缀，需去掉
 }
 
 /* ================= 行情获取 ================= */
@@ -344,11 +353,23 @@ function evaluate(q, k, fund){
   dims.push({n:'流动性', s:liqSc, w:fund?10:15, t:liqTxt});
 
   const total = Math.round(dims.reduce((a,d)=>a+d.s*d.w,0)/dims.reduce((a,d)=>a+d.w,0));
-  const grade = total>=80 ? {g:'A',t:'优秀',c:'var(--good)',a:'估值与基本面综合表现较好，可重点研究后再决策'}
-              : total>=65 ? {g:'B',t:'良好',c:'#84cc16',a:'整体处于合理区间，建议再确认盈利增速与股息'}
-              : total>=50 ? {g:'C',t:'一般',c:'var(--warn)',a:'估值或走势存在瑕疵，建议观望、等更好位置'}
-              :             {g:'D',t:'谨慎',c:'var(--bad)', a:'多维度偏弱，风险较高，不建议追高'};
-  return {dims, total, grade, ma20, ma60, valTxt, pbTxt, hasFund:fundSc!=null};
+  const grade = total>=80 ? {g:'A',t:'优秀',r:'≥80 分',c:'var(--good)',a:'估值与基本面综合表现较好，可重点研究后再决策'}
+              : total>=65 ? {g:'B',t:'良好',r:'65–79 分',c:'#84cc16',a:'整体处于合理区间，建议再确认盈利增速与股息'}
+              : total>=50 ? {g:'C',t:'一般',r:'50–64 分',c:'var(--warn)',a:'估值或走势存在瑕疵，建议观望、等更好位置'}
+              :             {g:'D',t:'谨慎',r:'低于 50 分',c:'var(--bad)', a:'多维度偏弱，风险较高，不建议追高'};
+  /* 估值结论：只看「估值」维度得分，给出便宜/昂贵的判断 */
+  const valVerdict = valSc>=85 ? {t:'明显低估', c:'var(--good)', d:'估值处于偏低区间，安全边际较厚'}
+                   : valSc>=70 ? {t:'相对低估', c:'#84cc16',       d:'估值略低于合理水平'}
+                   : valSc>=55 ? {t:'估值合理', c:'var(--warn)',   d:'处于中性区间，谈不上便宜或昂贵'}
+                   : valSc>=40 ? {t:'估值偏高', c:'#f97316',       d:'已高于合理水平，需靠业绩增长消化'}
+                   :             {t:'估值很贵', c:'var(--bad)',    d:'估值显著偏高，回调风险较大'};
+  /* 评级原因：从各维度挑出最强支撑项与最弱拖累项 */
+  const desc = [...dims].sort((a,b)=>b.s-a.s);
+  const reasons = {
+    up:   desc.filter(d=>d.s>=65).slice(0,2),
+    down: desc.slice().reverse().filter(d=>d.s<50).slice(0,2)
+  };
+  return {dims, total, grade, valVerdict, reasons, ma20, ma60, valTxt, pbTxt, hasFund:fundSc!=null};
 }
 
 /* ================= 渲染 ================= */
@@ -403,13 +424,23 @@ function renderResult(q,k){
     <div class="score-wrap" style="margin-top:10px">
       ${ringHTML(ev.total)}
       <div style="flex:1">
-        <div>评级 <span class="grade" style="color:${ev.grade.c}">${ev.grade.g} · ${ev.grade.t}</span></div>
+        <div>评级 <span class="grade" style="color:${ev.grade.c}">${ev.grade.g} · ${ev.grade.t}</span>
+          <span class="badge">${esc(ev.grade.r)}</span></div>
         <div class="note" style="margin-top:6px">${esc(ev.grade.a)}</div>
+        <div style="margin-top:8px">估值结论 ▸ <b style="color:${ev.valVerdict.c}">${ev.valVerdict.t}</b>
+          <span class="note">（${esc(ev.valVerdict.d)}）</span></div>
       </div>
     </div>
     <div style="margin-top:14px">${ev.dims.map(barHTML).join('')}</div>
+    <div class="verdict" style="margin-top:12px">
+      🔍 <b>评级原因</b>
+      ${ev.reasons.up.length?`<div style="margin-top:6px">✅ <b>支撑项</b>：${ev.reasons.up.map(d=>esc(d.n)+' '+d.s+'分').join('、')}</div>`:''}
+      ${ev.reasons.down.length?`<div style="margin-top:4px">⚠️ <b>拖累项</b>：${ev.reasons.down.map(d=>esc(d.n)+' '+d.s+'分').join('、')}</div>`:'<div style="margin-top:4px">各维度均无明显短板</div>'}
+      <div class="note" style="margin-top:6px">评级含义：A 优秀（≥80）｜B 良好（65–79）｜C 一般（50–64）｜D 谨慎（&lt;50）。估值结论仅由 PE/PB 决定。</div>
+    </div>
     <div class="verdict">💡 <b>结论：</b>${esc(q.name)}（${q.mlabel}）现价 ${fmt(q.price)} ${ccy}，
-      综合评分 <b style="color:${scoreColor(ev.total)}">${ev.total}/100（${ev.grade.t}）</b>。
+      综合评分 <b style="color:${scoreColor(ev.total)}">${ev.total}/100（${ev.grade.t}）</b>，
+      估值<b style="color:${ev.valVerdict.c}">${ev.valVerdict.t}</b>。
       ${ev.total>=65?'量化维度整体偏正面，仍需核对行业景气度与最新财报后再决定。':'量化维度存在明显短板，若要买入需有独立的基本面理由，勿仅因"跌了"抄底。'}
       ${!ev.hasFund?'<br><span style="color:var(--warn)">提示：未填基本面，结论偏技术面；在上方「手动基本面」填 ROE/增速/股息率可显著提高准确度。</span>':''}
       <div class="note" style="margin-top:6px">⚠️ 量化测算，不构成投资建议；股价波动风险自负。</div>
@@ -470,8 +501,10 @@ function renderWatch(){
 /* ================= 主流程 ================= */
 async function run(){
   const v = $('#codeInput').value.trim();
-  hideErr();
-  if(!v){ showErr('请输入股票代码'); return; }
+  hideErr(); hideSugg();
+  if(!v){ showErr('请输入股票代码或名称'); return; }
+  // 含中文或小写字母 → 当作名称，先搜索
+  if(!isCodeLike(v)){ await doSearch(v); return; }
   $('#btnGo').textContent='分析中…'; $('#btnGo').disabled=true;
   try{
     const q = await fetchQuote(v);
@@ -480,11 +513,73 @@ async function run(){
     fillFundInputs(q.code);
     renderResult(q,k);
   }catch(e){
-    showErr(e.message||'查询失败，请稍后重试'); $('#result').innerHTML='';
+    if(/无法识别/.test(e.message||'')){ await doSearch(v); }
+    else{ showErr(e.message||'查询失败，请稍后重试'); $('#result').innerHTML=''; }
   }finally{ $('#btnGo').textContent='分析'; $('#btnGo').disabled=false; }
 }
 function showErr(m){ $('#err').innerHTML = `<div class="err">⚠️ ${esc(m)}</div>`; }
 function hideErr(){ $('#err').innerHTML=''; }
+
+/* ================= 名称搜索（腾讯 smartbox，JSONP 方式） ================= */
+function isCodeLike(v){ return /^[A-Z0-9.\\-]{1,12}$/.test(v) && !/[a-z]/.test(v); }
+function hideSugg(){ const el=$('#suggest'); el.classList.add('hidden'); el.innerHTML=''; }
+function showSugg(list){
+  const el=$('#suggest');
+  if(!list.length){ hideSugg(); return; }
+  el.innerHTML = list.map((it,i)=>`<div class="it" data-i="${i}">
+      <span class="nm">${esc(it.name)}</span>
+      <span class="cd">${esc(it.code)} · ${it.mlabel}</span></div>`).join('');
+  el.classList.remove('hidden');
+  el.querySelectorAll('.it').forEach(node=>node.onclick=()=>{
+    const it=list[+node.dataset.i];
+    $('#codeInput').value = it.code; hideSugg();
+    if(it.market==='us') $('#codeInput').value = it.raw.split('.')[0].toUpperCase();
+    run();
+  });
+}
+function jsonpHint(kw){
+  return new Promise((resolve,reject)=>{
+    const s=document.createElement('script');
+    s.charset='utf-8';
+    try{ window.v_hint = undefined; }catch(e){}
+    const t=setTimeout(()=>{ cleanup(); reject(new Error('搜索超时')); }, 8000);
+    function cleanup(){ clearTimeout(t); s.remove(); }
+    s.onload=()=>{ const v=window.v_hint; cleanup(); resolve(v||''); };
+    s.onerror=()=>{ cleanup(); reject(new Error('搜索失败')); };
+    s.src='https://smartbox.gtimg.cn/s3/?t=all&q='+encodeURIComponent(kw)+'&_='+Date.now();
+    document.head.appendChild(s);
+  });
+}
+function parseHint(v){
+  if(!v) return [];
+  return v.split('^').map(e=>{
+    const p=e.split('~');
+    if(p.length<5) return null;
+    const [mk,code,name,py,type]=p;
+    if(!/GP/.test(type)) return null;                       // 只要股票，过滤指数/权证
+    if(!['sh','sz','hk','us'].includes(mk)) return null;
+    const market = (mk==='sh'||mk==='sz') ? 'cn' : mk;
+    const disp = market==='us' ? code.split('.')[0].toUpperCase() : code;
+    return {market, code:disp, raw:code, name, mlabel:MK[market].label};
+  }).filter(Boolean).slice(0,8);
+}
+async function doSearch(kw){
+  try{
+    const list = parseHint(await jsonpHint(kw));
+    if(!list.length){ showErr('没搜到「'+esc(kw)+'」，换个更完整的名称，或直接输入代码'); hideSugg(); return; }
+    if(list.length===1){ $('#codeInput').value = list[0].code; hideSugg(); run(); return; }
+    showSugg(list);
+  }catch(e){ showErr(e.message||'搜索失败，请直接输入代码'); hideSugg(); }
+}
+
+/* 输入时自动联想（含中文或小写字母 → 按名称搜） */
+let sTimer=null;
+$('#codeInput').addEventListener('input', ()=>{
+  const v=$('#codeInput').value.trim();
+  clearTimeout(sTimer);
+  if(!v || isCodeLike(v)){ hideSugg(); return; }
+  sTimer=setTimeout(()=>doSearch(v), 350);
+});
 
 /* 热门快捷入口 */
 const HOT = [['600519','贵州茅台'],['000858','五粮液'],['600036','招商银行'],['300750','宁德时代'],

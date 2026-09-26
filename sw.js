@@ -1,6 +1,6 @@
 /* 股价值得买 Service Worker —— 离线缓存 + 版本更新
    每次改完代码，把下面的 CACHE 版本号 +1，用户端会自动提示更新。 */
-const CACHE = 'stockval-v2';
+const CACHE = 'stockval-v3';
 
 const ASSETS = [
   './',
