@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0f172a">
+<title>股价值得买 · 股票估值分析</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#263449; --line:#334155;
+    --txt:#e2e8f0; --sub:#94a3b8; --acc:#38bdf8;
+    --up:#ef4444; --down:#22c55e;
+    --good:#22c55e; --warn:#f59e0b; --bad:#ef4444;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--txt);font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+       padding-bottom:70px;font-size:15px;line-height:1.5}
+  .wrap{max-width:520px;margin:0 auto;padding:14px}
+  h1{font-size:19px;padding:10px 2px 2px}
+  .sub{color:var(--sub);font-size:12px;margin-bottom:12px}
+  .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+  .row{display:flex;gap:10px;align-items:center}
+  input,select,button{font-size:15px;border-radius:10px;border:1px solid var(--line);
+       background:var(--card2);color:var(--txt);padding:10px 12px;outline:none}
+  input:focus{border-color:var(--acc)}
+  input.code{flex:1;letter-spacing:1px}
+  input.mini{width:100%;padding:8px 10px;font-size:14px}
+  button.primary{background:var(--acc);color:#06263b;font-weight:700;border:none;flex-shrink:0}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--sub);font-size:13px;padding:7px 12px}
+  .price-box{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .big{font-size:34px;font-weight:800;font-variant-numeric:tabular-nums}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px}
+  .kv{background:var(--card2);border-radius:10px;padding:8px 10px}
+  .kv .k{font-size:11px;color:var(--sub)}
+  .kv .v{font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  .score-wrap{display:flex;gap:16px;align-items:center}
+  .ring{width:110px;height:110px;flex-shrink:0;position:relative}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .num b{font-size:30px}
+  .ring .num span{font-size:11px;color:var(--sub)}
+  .grade{font-size:22px;font-weight:800}
+  .bar{height:8px;border-radius:5px;background:var(--card2);overflow:hidden;margin:5px 0 10px}
+  .bar i{display:block;height:100%;border-radius:5px}
+  .dim{display:flex;justify-content:space-between;font-size:13px;gap:8px}
+  .dim>span:last-child{color:var(--sub);flex-shrink:0}
+  .note{font-size:12px;color:var(--sub);margin-top:10px}
+  .tag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:12px;font-weight:700;margin-right:6px}
+  .verdict{margin-top:12px;padding:11px;border-radius:10px;background:var(--card2);font-size:14px}
+  .list-item{display:flex;justify-content:space-between;align-items:center;padding:11px 4px;border-bottom:1px solid var(--line)}
+  .list-item:last-child{border-bottom:none}
+  .list-item .nm{font-weight:700}
+  .list-item .cd{color:var(--sub);font-size:12px}
+  .empty{color:var(--sub);text-align:center;padding:26px 0;font-size:13px}
+  .err{background:#3f1d1d;border:1px solid #7f1d1d;color:#fecaca;padding:10px 12px;border-radius:10px;font-size:13px;margin-bottom:12px}
+  .tabs{position:fixed;bottom:0;left:0;right:0;background:var(--card);display:flex;border-top:1px solid var(--line);z-index:9}
+  .tabs button{flex:1;background:none;border:none;color:var(--sub);padding:11px 0 calc(11px + env(safe-area-inset-bottom));font-size:12px}
+  .tabs button.on{color:var(--acc);font-weight:700}
+  .hidden{display:none}
+  .hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px}
+  .fgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+  .fgrid label{display:block;font-size:11px;color:var(--sub);margin-bottom:3px}
+  .badge{font-size:11px;background:var(--card2);color:var(--sub);border-radius:6px;padding:2px 7px}
+  a{color:var(--acc)}
+  #updateTip{display:none;background:#78350f;color:#fde68a;padding:8px 12px;border-radius:10px;font-size:13px;margin-bottom:12px;cursor:pointer}
+  details summary{cursor:pointer;font-weight:700;font-size:14px;list-style:none}
+  details summary::-webkit-details-marker{display:none}
+  details summary::before{content:"▸ ";color:var(--acc)}
+  details[open] summary::before{content:"▾ "}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>📈 股价值得买</h1>
+  <div class="sub">A股 / 港股 / 美股 · 估值速查 + 是否值得买量化评分 · 数据仅存本机</div>
+  <div id="updateTip" onclick="location.reload()">🔄 检测到新版本，点击刷新更新</div>
+  <div id="err"></div>
+
+  <!-- ======== 评估页 ======== -->
+  <div id="page-score">
+    <div class="card">
+      <div class="row">
+        <input class="code" id="codeInput" placeholder="代码/名称：600519 · 00700 · AAPL" maxlength="12">
+        <button class="primary" id="btnGo">分析</button>
+      </div>
+      <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap" id="hotChips"></div>
+      <div class="note">支持：A股(6位数字) · 港股(5位数字，如 00700) · 美股(字母，如 AAPL)。数据源：腾讯财经公开行情，免费无 Key。港股/美股为延迟约15分钟行情。</div>
+    </div>
+
+    <details class="card" id="fundCard">
+      <summary>🧾 手动基本面（可选，填了更准）</summary>
+      <div class="note" style="margin:6px 0 0">接口不提供基本面，这里手动填 3 项即可让评分纳入基本面维度。留空则按行情维度评分。</div>
+      <div class="fgrid">
+        <div><label>ROE 净资产收益率 %</label><input class="mini" id="fRoe" inputmode="decimal" placeholder="如 25"></div>
+        <div><label>净利润增速 %</label><input class="mini" id="fGrowth" inputmode="decimal" placeholder="如 12"></div>
+        <div><label>股息率 %</label><input class="mini" id="fDiv" inputmode="decimal" placeholder="如 3.5"></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="ghost" id="btnApplyFund">应用到当前评分</button>
+        <button class="ghost" id="btnClearFund">清空</button>
+      </div>
+    </details>
+
+    <div id="result"></div>
+  </div>
+
+  <!-- ======== 自选页 ======== -->
+  <div id="page-list" class="hidden">
+    <div class="card">
+      <div class="hdr"><b>⭐ 我的自选</b><button class="ghost" id="btnExport">导出备份</button></div>
+      <div id="watchList"></div>
+      <div class="note">自选保存在本机浏览器（localStorage）。清缓存/换设备会丢失，请定期导出 JSON 备份。</div>
+    </div>
+    <div class="card">
+      <div class="hdr"><b>📥 导入备份</b></div>
+      <input type="file" id="importFile" accept=".json" style="font-size:13px">
+    </div>
+  </div>
+
+  <!-- ======== 说明页 ======== -->
+  <div id="page-about" class="hidden">
+    <div class="card">
+      <b>📊 评分模型</b>
+      <div class="note" style="margin-top:8px">
+        <b>未填基本面时</b>：综合分 = 估值 40% + 趋势动量 25% + 风险 20% + 流动性 15%<br>
+        <b>填写基本面后</b>：综合分 = 估值 30% + <b>基本面 30%</b> + 趋势动量 20% + 风险 10% + 流动性 10%<br><br>
+        · <b>估值</b>：PE(TTM) 分档 ×0.6 + PB 分档 ×0.4（<b>港股/美股无 PB，则仅按 PE</b>）；PE≤0 视为亏损。<br>
+        · <b>基本面</b>：ROE ×0.4 + 净利润增速 ×0.35 + 股息率 ×0.25（分档：ROE 20%+ 优秀、增速 25%+ 优秀、股息 3–5% 较优）。<br>
+        · <b>趋势动量</b>：现价 vs MA20/MA60 + 近 20 日涨跌幅（自动拉 K 线）。<br>
+        · <b>风险</b>：年化波动率 + 当日振幅，越低越高分。<br>
+        · <b>流动性</b>：成交额 + 换手率 + 量比（港股缺换手率/量比时自动降权）。<br><br>
+        评级：≥80 优秀 A｜65–79 良好 B｜50–64 一般 C｜&lt;50 谨慎 D
+      </div>
+    </div>
+    <div class="card">
+      <b>⚠️ 重要提示</b>
+      <div class="note" style="margin-top:8px">
+        · 本工具只做<b>量化参考</b>，评分高 ≠ 一定赚钱。请结合行业地位、政策、景气度综合判断。<br>
+        · 亏损股 PE 为负、银行等高杠杆行业 PB 口径不同，评分会失真，需人工复核。<br>
+        · 港股/美股为延迟约 15 分钟行情；非交易时段显示最近收盘数据。<br>
+        · 数据来自第三方免费接口，可能偶发失效。股市有风险，入市需谨慎。
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="on" data-page="page-score">🔍 评估</button>
+  <button data-page="page-list">⭐ 自选</button>
+  <button data-page="page-about">📖 说明</button>
+</div>
+
+<script>
+/* ================= 工具 ================= */
+const $ = s => document.querySelector(s);
+const LS_KEY = 'ssj_stockval_watch_v1';
+const LS_FUND = 'ssj_stockval_fund_v1';
+const fmt = (n, d=2) => (n===null||n===undefined||isNaN(n)) ? '—' : Number(n).toFixed(d);
+const fmtYi = n => n==null||isNaN(n) ? '—' : (n>=10000 ? fmt(n/10000,2)+' 万亿' : fmt(n,2)+' 亿');
+const cls = p => p>=0 ? 'var(--up)' : 'var(--down)';
+const sgn = p => (p>0?'+':'') + fmt(p);
+const esc = s => String(s??'').replace(/[<>&"]/g, c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const num = v => { const x = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(x)?null:x; };
+
+/* ================= 市场识别 ================= */
+const MK = {
+  cn:{label:'A股', cur:'元', cny:'CNY'},
+  hk:{label:'港股', cur:'港元', cny:'HKD'},
+  us:{label:'美股', cur:'美元', cny:'USD'}
+};
+function detectMarket(input){
+  let s = input.trim().toUpperCase();
+  if(/^(SH|SZ|BJ)\d{6}$/.test(s)) return {m:'cn', code:s.slice(2)};
+  if(/^HK\d{1,5}$/.test(s))        return {m:'hk', code:s.slice(2).padStart(5,'0')};
+  if(/^US[A-Z.\-]+$/.test(s))      return {m:'us', code:s.slice(2)};
+  if(/^\d{6}$/.test(s))            return {m:'cn', code:s};
+  if(/^\d{1,5}$/.test(s))          return {m:'hk', code:s.padStart(5,'0')};
+  if(/^[A-Z][A-Z.\-]{0,9}$/.test(s)) return {m:'us', code:s};
+  throw new Error('无法识别：A股填6位数字(如600519)，港股填1-5位数字(如00700)，美股填字母(如AAPL)');
+}
+function buildSym(code, market){
+  if(market==='cn'){
+    if(/^(6|9)/.test(code)) return 'sh'+code;
+    if(/^(0|3)/.test(code)) return 'sz'+code;
+    if(/^(4|8)/.test(code)) return 'bj'+code;
+    throw new Error('A股代码格式有误');
+  }
+  if(market==='hk') return 'hk'+code.padStart(5,'0');
+  return 'us'+code.toUpperCase();   // 美股
+}
+
+/* ================= 行情获取 ================= */
+async function csv(url){ const r = await fetch(url,{cache:'no-store'}); return r; }
+
+async function fetchQuote(input){
+  const {m, code} = detectMarket(input);
+  const sym = buildSym(code, m);
+  const res = await csv('https://qt.gtimg.cn/q='+sym+'&_='+Date.now());
+  if(!res.ok) throw new Error('行情接口请求失败 HTTP '+res.status);
+  const txt = new TextDecoder('gbk').decode(await res.arrayBuffer());
+  const mm = txt.match(/="([^"]*)"/);
+  if(!mm || !mm[1]) throw new Error('未查到「'+esc(input)+'」的行情，请确认代码');
+  const f = mm[1].split('~');
+  if(f.length < 45) throw new Error('行情数据异常，请稍后重试');
+  const isCN = m==='cn';
+  const amtRaw = +f[37];                       // CN单位:万元；HK/US单位:元
+  const q = {
+    market:m, mlabel:MK[m].label, cur:MK[m].cur,
+    symbol:sym, code:(f[2]||code).replace(/\.(OQ|N|O|A|P|K|L|Z|HK)$/,''),
+    fullCode:f[2]||code,
+    name:f[1],
+    price:+f[3], prevClose:+f[4], open:+f[5],
+    change:+f[31], changePct:+f[32], high:+f[33], low:+f[34],
+    volume:+f[36],
+    amountYi: isCN ? amtRaw/10000 : amtRaw/1e8,     // 统一换算为「亿元」
+    turnover: (+f[38] > 0) ? +f[38] : null,          // 换手率（港股无）
+    peTTM:+f[39],
+    amplitude:+f[43],
+    totalCapYi:+f[45],
+    floatCapYi: isCN ? +f[44] : null,
+    pb: isCN && isFinite(+f[46]) && +f[46]>0 ? +f[46] : null,   // 仅A股有PB
+    volRatio: isCN ? +f[49] : null,                  // 仅A股有量比
+    peStatic: isCN && +f[52]>0 ? +f[52] : null,
+    peDyn:    isCN && +f[53]>0 ? +f[53] : null,
+    time: parseTime(f[30])
+  };
+  if(!q.price) throw new Error('该代码暂无有效价格数据');
+  return q;
+}
+function parseTime(t){
+  if(!t) return '—';
+  t = String(t).trim();
+  if(/^\d{14}$/.test(t)) return `${t.slice(0,4)}-${t.slice(4,6)}-${t.slice(6,8)} ${t.slice(8,10)}:${t.slice(10,12)}`;
+  return t.replace(/\//g,'-');
+}
+
+async function fetchKline(q, days=80){
+  const end = '/get?param=';
+  let url;
+  if(q.market==='cn'){
+    url = 'https://web.ifzq.gtimg.cn/appstock/app/fqkline'+end+q.symbol+',day,,,'+days+',qfq&_='+Date.now();
+  }else if(q.market==='hk'){
+    url = 'https://web.ifzq.gtimg.cn/appstock/app/hkfqkline'+end+q.symbol+',day,,,'+days+',qfq&_='+Date.now();
+  }else{
+    // 美股需带交易所后缀（如 AAPL.OQ），后缀由行情返回的 fullCode 提供
+    url = 'https://web.ifzq.gtimg.cn/appstock/app/usfqkline'+end+'us'+q.fullCode+',day,,,'+days+',qfq&_='+Date.now();
+  }
+  const res = await fetch(url,{cache:'no-store'});
+  if(!res.ok) throw new Error('K线 HTTP '+res.status);
+  const j = await res.json();
+  const d = j && j.data && j.data[Object.keys(j.data)[0]];
+  const arr = (d && (d.qfqday || d.day)) || [];
+  return arr.filter(r=>Array.isArray(r)).map(r=>({date:r[0], open:+r[1], close:+r[2], high:+r[3], low:+r[4]}));
+}
+
+/* ================= 评分模型 ================= */
+function band(v, bands){ for(const [lim,sc] of bands) if(v < lim) return sc; return bands[bands.length-1][1]; }
+function wavg(comps){ // comps: [[score, weight], ...]
+  const tot = comps.reduce((a,c)=>a+c[1],0);
+  if(!tot) return null;
+  return Math.round(comps.reduce((a,c)=>a+c[0]*c[1],0)/tot);
+}
+function ma(a,n){ return a.length<n ? null : a.slice(-n).reduce((x,y)=>x+y,0)/n; }
+
+function peScore(pe){
+  if(pe<=0) return {s:15, t:'亏损（PE为负）'};
+  const s = band(pe,[[10,100],[15,85],[25,70],[40,50],[60,32],[1e9,20]]);
+  return {s, t: pe<10?'极低':pe<15?'偏低':pe<25?'合理':pe<40?'偏高':'很高'};
+}
+function pbScore(pb){
+  const s = band(pb,[[1,100],[2,88],[4,72],[6,55],[10,38],[1e9,25]]);
+  return {s, t: pb<1?'破净':pb<2?'偏低':pb<4?'合理':pb<6?'偏高':'很高'};
+}
+function roeScore(v){ return band(v,[[5,30],[10,50],[15,70],[20,85],[30,95],[1e9,100]]); }
+function growthScore(v){ return band(v,[[0,25],[5,45],[15,65],[25,80],[40,90],[1e9,95]]); }
+function divScore(v){ return band(v,[[1,35],[2,55],[3,70],[5,85],[7,95],[1e9,88]]); }
+
+function evaluate(q, k, fund){
+  const closes = k.map(x=>x.close);
+  const ma20 = ma(closes,20), ma60 = ma(closes,60);
+
+  /* 1. 估值 */
+  const pe = peScore(q.peTTM);
+  const comps = [[pe.s, 0.6]];
+  let valTxt = 'PE '+fmt(q.peTTM)+' '+pe.t;
+  let pbTxt = null;
+  if(q.pb!=null){ const pb = pbScore(q.pb); comps.push([pb.s,0.4]); pbTxt = pb.t; valTxt += '，PB '+fmt(q.pb)+' '+pb.t; }
+  else valTxt += '（无PB数据）';
+  const valSc = wavg(comps);
+
+  /* 2. 基本面（可选） */
+  let fundSc = null, fundTxt = null;
+  if(fund){
+    const c = [];
+    if(fund.roe!=null)      c.push([roeScore(fund.roe),0.40]);
+    if(fund.growth!=null)   c.push([growthScore(fund.growth),0.35]);
+    if(fund.div!=null)      c.push([divScore(fund.div),0.25]);
+    if(c.length){
+      fundSc = wavg(c);
+      fundTxt = [fund.roe!=null?'ROE '+fmt(fund.roe,1)+'%':null,
+                 fund.growth!=null?'增速 '+fmt(fund.growth,1)+'%':null,
+                 fund.div!=null?'股息 '+fmt(fund.div,2)+'%':null].filter(Boolean).join(' · ');
+    }
+  }
+
+  /* 3. 趋势动量 */
+  let momSc = 50, momTxt = 'K线数据不足';
+  if(ma20!==null){
+    const a20 = q.price>ma20, a60 = ma60===null?a20:q.price>ma60;
+    const r20 = (q.price/closes[closes.length-21]-1)*100;
+    let s = 50 + (a20?12:-12) + (a60?12:-12) + Math.max(-18,Math.min(18,r20*1.2));
+    momSc = Math.round(Math.max(5,Math.min(100,s)));
+    momTxt = (a20?'站上20日线':'跌破20日线')+' · '+(a60?'站上60日线':'跌破60日线')+' · 近20日 '+sgn(r20)+'%';
+  }
+
+  /* 4. 风险 */
+  let riskSc = 60, riskTxt = '—';
+  if(closes.length>=21){
+    const rets=[]; for(let i=1;i<closes.length;i++) rets.push(closes[i]/closes[i-1]-1);
+    const m=rets.reduce((a,b)=>a+b,0)/rets.length;
+    const sd=Math.sqrt(rets.reduce((a,b)=>a+(b-m)**2,0)/rets.length);
+    const vol=sd*Math.sqrt(252)*100;
+    riskSc = band(vol,[[15,100],[25,85],[35,70],[50,50],[1e9,32]]);
+    riskTxt = '年化波动 '+fmt(vol,1)+'% · 振幅 '+fmt(q.amplitude,2)+'%';
+  }
+
+  /* 5. 流动性 */
+  const c2 = [[band(q.amountYi,[[0.5,25],[2,50],[5,70],[15,85],[1e9,95]]), 0.5]];
+  if(q.turnover!=null) c2.push([band(q.turnover,[[0.3,55],[1,75],[3,90],[7,80],[15,65],[1e9,50]]),0.25]);
+  if(q.volRatio!=null) c2.push([band(q.volRatio,[[0.5,55],[1,75],[1e9,80]]),0.25]);
+  const liqSc = wavg(c2);
+  const liqTxt = '成交 '+fmt(q.amountYi,2)+' 亿'
+    + (q.turnover!=null?' · 换手 '+fmt(q.turnover,2)+'%':'')
+    + (q.volRatio!=null?' · 量比 '+fmt(q.volRatio,2):'');
+
+  /* 汇总 */
+  const dims = [{n:'估值', s:valSc, w:fund?30:40, t:valTxt}];
+  if(fundSc!=null) dims.push({n:'基本面', s:fundSc, w:30, t:fundTxt});
+  dims.push({n:'趋势动量', s:momSc, w:fund?20:25, t:momTxt});
+  dims.push({n:'风险', s:riskSc, w:fund?10:20, t:riskTxt});
+  dims.push({n:'流动性', s:liqSc, w:fund?10:15, t:liqTxt});
+
+  const total = Math.round(dims.reduce((a,d)=>a+d.s*d.w,0)/dims.reduce((a,d)=>a+d.w,0));
+  const grade = total>=80 ? {g:'A',t:'优秀',c:'var(--good)',a:'估值与基本面综合表现较好，可重点研究后再决策'}
+              : total>=65 ? {g:'B',t:'良好',c:'#84cc16',a:'整体处于合理区间，建议再确认盈利增速与股息'}
+              : total>=50 ? {g:'C',t:'一般',c:'var(--warn)',a:'估值或走势存在瑕疵，建议观望、等更好位置'}
+              :             {g:'D',t:'谨慎',c:'var(--bad)', a:'多维度偏弱，风险较高，不建议追高'};
+  return {dims, total, grade, ma20, ma60, valTxt, pbTxt, hasFund:fundSc!=null};
+}
+
+/* ================= 渲染 ================= */
+const scoreColor = s => s>=80?'var(--good)':s>=65?'#84cc16':s>=50?'var(--warn)':'var(--bad)';
+function barHTML(d){
+  return `<div class="dim"><span><b>${d.n}</b>（${d.w}%）<span style="color:var(--sub);font-size:12px"> ${esc(d.t||'')}</span></span><span>${d.s} 分</span></div>
+          <div class="bar"><i style="width:${d.s}%;background:${scoreColor(d.s)}"></i></div>`;
+}
+function ringHTML(sc){
+  const c=scoreColor(sc), r=46, cir=2*Math.PI*r;
+  return `<div class="ring"><svg width="110" height="110">
+      <circle cx="55" cy="55" r="${r}" stroke="var(--card2)" stroke-width="10" fill="none"/>
+      <circle cx="55" cy="55" r="${r}" stroke="${c}" stroke-width="10" fill="none" stroke-linecap="round"
+        stroke-dasharray="${cir}" stroke-dashoffset="${cir*(1-sc/100)}"/></svg>
+    <div class="num"><b style="color:${c}">${sc}</b><span>综合评分</span></div></div>`;
+}
+
+let LAST=null, LASTK=[];
+function renderResult(q,k){
+  const fund = getFund(q.code);
+  const ev = evaluate(q,k,fund);
+  LAST={q,ev};
+  const inWatch = getWatch().some(w=>w.code===q.code);
+  const ccy = q.cur;
+  $('#result').innerHTML = `
+  <div class="card">
+    <div class="hdr">
+      <div><span class="grade">${esc(q.name)}</span>
+        <span class="sub">${esc(q.code)} · ${q.mlabel} <span class="badge">${ccy}</span></span></div>
+      <button class="ghost" id="btnWatch">${inWatch?'★ 已自选':'☆ 加自选'}</button>
+    </div>
+    <div class="price-box">
+      <span class="big" style="color:${cls(q.changePct)}">${fmt(q.price)}</span>
+      <span style="color:${cls(q.changePct)};font-weight:700">${sgn(q.change)}　${sgn(q.changePct)}%</span>
+    </div>
+    <div class="sub">行情时间 ${esc(q.time)}${q.changePct>=0?' ↑':' ↓'} ｜ 今开 ${fmt(q.open)} 最高 ${fmt(q.high)} 最低 ${fmt(q.low)}</div>
+    <div class="grid">
+      <div class="kv"><div class="k">市盈率 PE(TTM)</div><div class="v" style="color:${scoreColor(ev.dims[0].s)}">${fmt(q.peTTM)}</div></div>
+      <div class="kv"><div class="k">市净率 PB</div><div class="v">${q.pb!=null?fmt(q.pb):'—'}</div></div>
+      <div class="kv"><div class="k">总市值</div><div class="v">${fmtYi(q.totalCapYi)}</div></div>
+      <div class="kv"><div class="k">静态 PE</div><div class="v">${q.peStatic!=null?fmt(q.peStatic):'—'}</div></div>
+      <div class="kv"><div class="k">动态 PE</div><div class="v">${q.peDyn!=null?fmt(q.peDyn):'—'}</div></div>
+      <div class="kv"><div class="k">换手率</div><div class="v">${q.turnover!=null?fmt(q.turnover)+'%':'—'}</div></div>
+      <div class="kv"><div class="k">振幅</div><div class="v">${fmt(q.amplitude)}%</div></div>
+      <div class="kv"><div class="k">量比</div><div class="v">${q.volRatio!=null?fmt(q.volRatio):'—'}</div></div>
+      <div class="kv"><div class="k">成交额</div><div class="v">${fmt(q.amountYi,2)} 亿</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>🧮 值得买吗？</b> ${ev.hasFund?'<span class="badge" style="color:var(--acc)">已含基本面</span>':'<span class="badge">仅行情维度</span>'}
+    <div class="score-wrap" style="margin-top:10px">
+      ${ringHTML(ev.total)}
+      <div style="flex:1">
+        <div>评级 <span class="grade" style="color:${ev.grade.c}">${ev.grade.g} · ${ev.grade.t}</span></div>
+        <div class="note" style="margin-top:6px">${esc(ev.grade.a)}</div>
+      </div>
+    </div>
+    <div style="margin-top:14px">${ev.dims.map(barHTML).join('')}</div>
+    <div class="verdict">💡 <b>结论：</b>${esc(q.name)}（${q.mlabel}）现价 ${fmt(q.price)} ${ccy}，
+      综合评分 <b style="color:${scoreColor(ev.total)}">${ev.total}/100（${ev.grade.t}）</b>。
+      ${ev.total>=65?'量化维度整体偏正面，仍需核对行业景气度与最新财报后再决定。':'量化维度存在明显短板，若要买入需有独立的基本面理由，勿仅因"跌了"抄底。'}
+      ${!ev.hasFund?'<br><span style="color:var(--warn)">提示：未填基本面，结论偏技术面；在上方「手动基本面」填 ROE/增速/股息率可显著提高准确度。</span>':''}
+      <div class="note" style="margin-top:6px">⚠️ 量化测算，不构成投资建议；股价波动风险自负。</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <b>📉 近期走势</b>
+    <div class="note" style="margin-top:6px">
+      ${ev.ma20?`MA20 ${fmt(ev.ma20)}（${q.price>ev.ma20?'上方 ↑':'下方 ↓'}）`:'MA20 数据不足'}<br>
+      ${ev.ma60?`MA60 ${fmt(ev.ma60)}（${q.price>ev.ma60?'上方 ↑':'下方 ↓'}）`:'MA60 数据不足'}<br>
+      区间 ${k.length?esc(k[0].date)+' ~ '+esc(k[k.length-1].date):'—'}（前复权，${k.length} 个交易日）
+    </div>
+  </div>`;
+  $('#btnWatch').onclick = () => toggleWatch(q);
+}
+
+/* ================= 基本面输入（按代码本地记忆） ================= */
+function getFundMap(){ try{ return JSON.parse(localStorage.getItem(LS_FUND))||{}; }catch(e){ return {}; } }
+function getFund(code){ const m=getFundMap(); return m[code]||null; }
+function saveFund(code, f){
+  const m=getFundMap();
+  if(f && (f.roe!=null||f.growth!=null||f.div!=null)) m[code]=f; else delete m[code];
+  localStorage.setItem(LS_FUND, JSON.stringify(m));
+}
+function readFundInputs(){ return {roe:num($('#fRoe').value), growth:num($('#fGrowth').value), div:num($('#fDiv').value)}; }
+function fillFundInputs(code){ const f=getFund(code); $('#fRoe').value=f&&f.roe!=null?f.roe:''; $('#fGrowth').value=f&&f.growth!=null?f.growth:''; $('#fDiv').value=f&&f.div!=null?f.div:''; }
+$('#btnApplyFund').onclick = () => {
+  const f = readFundInputs();
+  if(LAST){ saveFund(LAST.q.code, f); renderResult(LAST.q, LASTK); $('#fundCard').open = true; }
+  else showErr('请先分析一只股票');
+};
+$('#btnClearFund').onclick = () => {
+  ['fRoe','fGrowth','fDiv'].forEach(id=>$('#'+id).value='');
+  if(LAST){ saveFund(LAST.q.code, null); renderResult(LAST.q, LASTK); }
+};
+
+/* ================= 自选 ================= */
+function getWatch(){ try{ return JSON.parse(localStorage.getItem(LS_KEY))||[]; }catch(e){ return []; } }
+function setWatch(l){ localStorage.setItem(LS_KEY, JSON.stringify(l)); }
+function toggleWatch(q){
+  let l = getWatch();
+  if(l.some(w=>w.code===q.code)) l = l.filter(w=>w.code!==q.code);
+  else l.unshift({code:q.code, name:q.name, market:q.market, price:q.price, time:q.time});
+  setWatch(l); renderWatch();
+  if(LAST) renderResult(LAST.q, LASTK);
+}
+function renderWatch(){
+  const l = getWatch(), box = $('#watchList');
+  if(!l.length){ box.innerHTML = '<div class="empty">还没有自选股，去「评估」页分析一只并点 ☆ 加自选</div>'; return; }
+  box.innerHTML = l.map(w=>`<div class="list-item" data-code="${esc(w.code)}">
+      <div><div class="nm">${esc(w.name||w.code)}</div><div class="cd">${esc(w.code)} · ${MK[w.market]?MK[w.market].label:'A股'} · 收藏价 ${fmt(w.price)}</div></div>
+      <button class="ghost" data-del="${esc(w.code)}">删除</button></div>`).join('');
+  box.querySelectorAll('[data-del]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); setWatch(getWatch().filter(w=>w.code!==b.dataset.del)); renderWatch(); });
+  box.querySelectorAll('.list-item').forEach(it=>it.onclick=()=>{ $('#codeInput').value=it.dataset.code; switchPage('page-score'); run(); });
+}
+
+/* ================= 主流程 ================= */
+async function run(){
+  const v = $('#codeInput').value.trim();
+  hideErr();
+  if(!v){ showErr('请输入股票代码'); return; }
+  $('#btnGo').textContent='分析中…'; $('#btnGo').disabled=true;
+  try{
+    const q = await fetchQuote(v);
+    let k=[]; try{ k = await fetchKline(q,80); }catch(e){}
+    LASTK=k;
+    fillFundInputs(q.code);
+    renderResult(q,k);
+  }catch(e){
+    showErr(e.message||'查询失败，请稍后重试'); $('#result').innerHTML='';
+  }finally{ $('#btnGo').textContent='分析'; $('#btnGo').disabled=false; }
+}
+function showErr(m){ $('#err').innerHTML = `<div class="err">⚠️ ${esc(m)}</div>`; }
+function hideErr(){ $('#err').innerHTML=''; }
+
+/* 热门快捷入口 */
+const HOT = [['600519','贵州茅台'],['000858','五粮液'],['600036','招商银行'],['300750','宁德时代'],
+             ['00700','腾讯控股'],['09988','阿里巴巴'],['AAPL','苹果'],['TSLA','特斯拉']];
+$('#hotChips').innerHTML = HOT.map(([c,n])=>`<button class="ghost" data-c="${c}">${n}</button>`).join('');
+$('#hotChips').querySelectorAll('button').forEach(b=>b.onclick=()=>{ $('#codeInput').value=b.dataset.c; run(); });
+
+$('#btnGo').onclick = run;
+$('#codeInput').addEventListener('keydown', e=>{ if(e.key==='Enter') run(); });
+$('#btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify({watch:getWatch(), fund:getFundMap()}, null, 2)], {type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+  a.download='stockval-backup-'+new Date().toISOString().slice(0,10)+'.json'; a.click();
+};
+$('#importFile').onchange = e => {
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    let obj=JSON.parse(r.result);
+    const wArr = Array.isArray(obj)? obj : (obj.watch||[]);
+    const fMap = Array.isArray(obj)? {} : (obj.fund||{});
+    const old=getWatch(), codes=new Set(old.map(w=>w.code));
+    wArr.forEach(w=>{ if(w&&w.code&&!codes.has(w.code)) old.push(w); });
+    setWatch(old);
+    const fm=getFundMap(); Object.assign(fm, fMap); localStorage.setItem(LS_FUND, JSON.stringify(fm));
+    renderWatch(); alert('导入成功，当前自选 '+old.length+' 只');
+  }catch(err){ alert('文件格式不正确'); } };
+  r.readAsText(f);
+};
+
+/* 页签 */
+function switchPage(id){
+  ['page-score','page-list','page-about'].forEach(p=>$('#'+p).classList.toggle('hidden',p!==id));
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on', b.dataset.page===id));
+  if(id==='page-list') renderWatch();
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));
+
+/* PWA */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    reg.addEventListener('updatefound',()=>{
+      const nw=reg.installing;
+      nw && nw.addEventListener('statechange',()=>{
+        if(nw.state==='installed' && navigator.serviceWorker.controller) $('#updateTip').style.display='block';
+      });
+    });
+  }).catch(()=>{});
+}
+
+/* 默认示例 */
+$('#codeInput').value='600519';
+run();
+</script>
+</body>
+</html>
